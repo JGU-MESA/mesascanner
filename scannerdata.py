@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-version = 1.1
+version = 1.1b
 scanner_list = ['melba_020:scan:', 'melba_050:scan:']
 
 
@@ -352,10 +352,14 @@ class FormWidget(QWidget):
         self.tableView.setModel(self.model)
 
     def get_info(self):
-        for i in enumerate(self._ch):
-            self._ch[i[1]].show_info()
-        if not self._ch_select:
-            self.append_to_txt_info("No channel selected yet")
+        try:
+            for i in enumerate(self._ch):
+                self._ch[i[1]].show_info()
+            if not self._ch_select:
+                self.append_to_txt_info("No channel selected yet")
+                return
+        except:
+            self.append_to_txt_info("Error while getting info")
             return
 
     def read_file(self):
