@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-version = 1.1b
+version = 1.11
 scanner_list = ['melba_020:scan:', 'melba_050:scan:']
 
 
@@ -352,15 +352,21 @@ class FormWidget(QWidget):
         self.tableView.setModel(self.model)
 
     def get_info(self):
-        try:
-            for i in enumerate(self._ch):
-                self._ch[i[1]].show_info()
-            if not self._ch_select:
-                self.append_to_txt_info("No channel selected yet")
-                return
-        except:
-            self.append_to_txt_info("Error while getting info")
+        for i in enumerate(self._ch):
+            self._ch[i[1]].show_info()
+        if not self._ch_select:
+            self.append_to_txt_info("No channel selected yet")
             return
+
+    # try:
+    #     for i in enumerate(self._ch):
+    #         self._ch[i[1]].show_info()
+    #     if not self._ch_select:
+    #         self.append_to_txt_info("No channel selected yet")
+    #         return
+    # except:
+    #     self.append_to_txt_info("Error while getting info")
+    #     return
 
     def read_file(self):
         self.txt_info.append("Please choose a data file...")
@@ -530,10 +536,12 @@ class ChannelData(PV, QObject):
         return self.data
 
     def show_info(self):
-        self.msg2str.emit("ch{}: nos = {}; "
-                          "samples = {}".format(self.ch, self.pv['nos'].value,
-                                                self.pv['samples'].value.shape[0]))
-
+        try:
+            self.msg2str.emit("ch{}: nos = {}; "
+                              "samples = {}".format(self.ch, self.pv['nos'].value,
+                                                    self.pv['samples'].value.shape[0]))
+        except:
+            self.msg2str.emit("ch{}: Error showing info".format(self.ch))
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
