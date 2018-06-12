@@ -415,7 +415,7 @@ class FormWidget(QWidget):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         now = datetime.datetime.now()
-        save_str = "{}_last_rsl.csv".format(now.strftime("%Y-%m-%d_%H-%M"))
+        save_str = "{}_last_rsl.csv".format(now.strftime("%y%m%d_%H%M"))
         my_path, _ = QFileDialog.getSaveFileName(self, "Save to", save_str,
                                                  "CSV-File (*.csv);;All Files (*)", options=options)
 
