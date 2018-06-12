@@ -2,17 +2,25 @@
 
 import datetime
 import epics
+import matplotlib.gridspec as gridspec
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import sys
 import time
 
 from epics.pv import PV
 
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-version = 1.11
+version = 1.12
 scanner_list = ['melba_020:scan:', 'melba_050:scan:']
 
 
@@ -169,6 +177,63 @@ class MyInputDialog(QDialog):
 
 
 #############################
+# FigureCanvas
+#############################
+class PlotCanvas(FigureCanvas):
+    msg2str = pyqtSignal(str)
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        # Figure
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        FigureCanvas.__init__(self, self.fig)
+        FigureCanvas.setSizePolicy(self, QSizePolicy.Expanding,
+                                   QSizePolicy.Expanding)
+        FigureCanvas.updateGeometry(self)
+
+    def plot(self, df):
+        print("Start Plotting")
+        fontsize = 6
+        # Clear last figure
+        self.figure.clf()
+
+        # Axes
+        main_ax = self.figure.add_subplot(1, 1, 1)
+        #main_ax.plot(df.loc, df.loc[:,i], label=df.iloc[i].name)
+        for i in range(len(df.columns)):
+            if df.columns[0] == 'ch0':
+                x = df['ch0']
+                xlabel = "ch0"
+            else:
+                x = df.index
+                xlabel = "Index"
+            main_ax.plot(x, df.iloc[:,i], label=df.iloc[i].name)
+
+        main_ax.legend(fontsize=fontsize)
+        main_ax.tick_params(labelsize=fontsize)
+        main_ax.set_xlabel(xlabel, fontsize=fontsize)
+        main_ax.set_ylabel('y [Counts]', fontsize=fontsize)
+        main_ax.grid(color='w', alpha=0.5, linestyle='dashed', linewidth=0.5)
+
+        # Second x and y axis in micrometer
+        # scld_xticks = np.around(self.pxl2um * np.arange(min(self.data_x[0]), max(self.data_x[0]), 250), 2)
+        # scld_yticks = np.around(self.pxl2um * np.arange(min(self.data_y[0]), max(self.data_y[0]), 250), 2)
+        #
+        # main_ax_x2 = main_ax.twiny()
+        # main_ax_x2.set_xticks(scld_xticks)
+        # main_ax_x2.set_xlabel("Micrometer")
+        #
+        # main_ax_y2 = main_ax.twinx()
+        # main_ax_y2.set_yticks(scld_yticks)
+        # main_ax_y2.invert_yaxis()
+        # main_ax_y2.set_ylabel("Micrometer")
+
+        # ax_y.set_xlabel('I / \u03a3 I [%]', fontsize=14)
+        # ax_x.set_ylabel('I / \u03a3 I [%]', fontsize=14)
+
+        self.draw()
+
+
+#############################
 # MainWindow
 #############################
 class MyMainWindow(QMainWindow):
@@ -181,9 +246,9 @@ class MyMainWindow(QMainWindow):
         screen_res = [screen_size.width(), screen_size.height()]
 
         # Geometry
-        self.my_left = round(0.3 * screen_res[0])
-        self.my_top = round(0.3 * screen_res[1])
-        self.my_height = round(0.5 * screen_res[1])
+        self.my_left = round(0.05 * screen_res[0])
+        self.my_top = round(0.05 * screen_res[1])
+        self.my_height = round(0.9 * screen_res[1])
         self.my_width = self.my_height * 16 / 9  # round(0.8 * screen_res[0])
 
         # Widgets
@@ -210,6 +275,14 @@ class MyMainWindow(QMainWindow):
         self.setWindowTitle('MELBA Scanner Data Acquisition '
                             'GUI Version {}'.format(version))
         self.show()
+        self.center()
+
+    def center(self):
+        frameGm = self.frameGeometry()
+        screen = QApplication.desktop().screenNumber(QApplication.desktop().cursor().pos())
+        centerPoint = QApplication.desktop().screenGeometry(screen).center()
+        frameGm.moveCenter(centerPoint)
+        self.move(frameGm.topLeft())
 
 
 #############################
@@ -217,7 +290,7 @@ class MyMainWindow(QMainWindow):
 #############################
 class FormWidget(QWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super().__init__(parent)
 
         # PV objects
@@ -237,7 +310,7 @@ class FormWidget(QWidget):
         self.lst_rst = pd.DataFrame()
 
         # Widgets
-        self.btn_number = 7
+        self.btn_number = 8
         self.btn_list = {}
         self.btn_clear = None
         self.btn_close = None
@@ -245,16 +318,22 @@ class FormWidget(QWidget):
         # Table for displaying result
         self.tableView = QTableView()
 
+        # Plot Canvas
+        self.m = PlotCanvas(self, 2 * parent.my_width, 2.5 * parent.my_height)
+        self.m_toolbar = NavigationToolbar(self.m, self)
+        self.m.msg2str[str].connect(self.append_to_txt_info)
+
         # Info text
         self.ln_info = QLineEdit()
         self.txt_info = QTextEdit()
+        self.txt_info.setMinimumHeight(parent.my_height/4)
 
         # Select channels and scanner at startup
         self.select_ch_scan(True)
 
-        self.init_ui()
+        self.init_ui(parent)
 
-    def init_ui(self):
+    def init_ui(self, parent):
         # Buttons
         lyt_btn = QHBoxLayout()
 
@@ -279,6 +358,9 @@ class FormWidget(QWidget):
         self.btn_list[4].setText("Change Channel")
         self.btn_list[4].clicked.connect(self.select_ch_scan)
 
+        self.btn_list[5].setText("Plot Table")
+        self.btn_list[5].clicked.connect(self.plot_table)
+
         self.btn_clear = self.btn_list[len(self.btn_list) - 2]
         self.btn_clear.setText("Clear Table")
         self.btn_clear.clicked.connect(self.clear)
@@ -289,22 +371,34 @@ class FormWidget(QWidget):
 
         # Table
         self.tableView.setObjectName("tableView")
+        self.tableView.setMinimumWidth(2*parent.my_width / 5)
+        self.tableView.setMinimumHeight(parent.my_height / 2)
 
         # Info texts
         self.ln_info.setReadOnly(True)
         self.ln_info.setText("Selected channel: {} @Scanner {}".format(self._ch_select, self._scanner))
         self.txt_info.setMaximumHeight(200)
 
-        # Sub Layout
+        # Sub Layout Channel box and progressbar
         lyt_info = QHBoxLayout()
         lyt_info.addWidget(self.ln_info)
         lyt_info.addWidget(self.pbar)
+
+        # Sub Layout Plot
+        lyt_plot = QVBoxLayout()
+        lyt_plot.addWidget(self.m)
+        lyt_plot.addWidget(self.m_toolbar)
+
+        # Sub Layout Table and Plot
+        lyt_tbl_plt = QHBoxLayout()
+        lyt_tbl_plt.addWidget(self.tableView)
+        lyt_tbl_plt.addLayout(lyt_plot)
 
         # Global Layout
         lyt_global = QVBoxLayout()
         lyt_global.setSpacing(1)
         lyt_global.addWidget(QLabel("Last results:"))
-        lyt_global.addWidget(self.tableView)
+        lyt_global.addLayout(lyt_tbl_plt)
         lyt_global.addWidget(QLabel("Infobox:"))
         lyt_global.addLayout(lyt_info)
         lyt_global.addWidget(self.txt_info)
@@ -350,6 +444,7 @@ class FormWidget(QWidget):
     def display_df_table(self, df):
         self.model = PandasTable(df)
         self.tableView.setModel(self.model)
+        self.plot_table()
 
     def get_info(self):
         for i in enumerate(self._ch):
@@ -358,15 +453,13 @@ class FormWidget(QWidget):
             self.append_to_txt_info("No channel selected yet")
             return
 
-    # try:
-    #     for i in enumerate(self._ch):
-    #         self._ch[i[1]].show_info()
-    #     if not self._ch_select:
-    #         self.append_to_txt_info("No channel selected yet")
-    #         return
-    # except:
-    #     self.append_to_txt_info("Error while getting info")
-    #     return
+    def plot_table(self):
+        if self.lst_rst.empty:
+            self.txt_info.append("No data to be plotted")
+            return
+        # x = self.model.df.iloc[:, 0]
+        # y = self.model.df.iloc[:, 1]
+        self.m.plot(self.lst_rst)
 
     def read_file(self):
         self.txt_info.append("Please choose a data file...")
@@ -387,8 +480,20 @@ class FormWidget(QWidget):
             self.append_to_txt_info("No channel selected yet")
             return
 
-        if not all(self._ch[i[1]].pv['nos'].value == self._ch[self._ch_select[0]].pv['nos'].value
-                   for i in enumerate(self._ch)):
+        # Reference value
+        first_channel = next(iter(self._ch))
+
+        if not int == type(self._ch[first_channel].pv['samples'].value):
+            number_of_values = self._ch[first_channel].pv['samples'].value.shape[0] \
+                               + self._ch[first_channel].pv['nos'].value
+        else:
+            number_of_values = self._ch[first_channel].pv['nos'].value
+
+        if not all(
+                self._ch[i[1]].pv['nos'].value == number_of_values or
+                self._ch[i[1]].pv['samples'].value.shape[0] == number_of_values
+                for i in enumerate(self._ch)
+        ):
             self.append_to_txt_info("All channels must have the same number of samples. Cancel retrieving.")
             return
 
@@ -426,6 +531,7 @@ class FormWidget(QWidget):
         self.txt_info.append('Table saved to {}'.format(my_path))
 
     def select_ch_scan(self, init=False):
+        self.txt_info.append("Assigning new channels, please wait...")
         dlg = MyInputDialog(self._ch_select, self._scanner)
         if dlg.exec_():
             self._ch_select, self._scanner = dlg.return_list()
@@ -473,7 +579,13 @@ class ChannelData(PV, QObject):
         }
 
         self.pv['nos'].get()
+        time.sleep(0.2)
         self.pv['samples'].get()
+        time.sleep(0.2)
+        # Debug
+        for k in self.pv.keys():
+            print("ch{} : self.pv[{}].value = {}".format(self.ch, k, self.pv[k].value))
+            print("ch{} : type(self.pv[{}].value) = {}".format(self.ch, k, type(self.pv[k].value)))
 
     def append_to_data(self, samples):
         if self.data.empty:
@@ -503,7 +615,7 @@ class ChannelData(PV, QObject):
         if self.pv['nos'].value == 0:
 
             # Exit if no data is available at all
-            if self.pv['samples'].value.shape[0] == 0:
+            if not type(self.pv['samples']) == int and self.pv['samples'].value.shape[0] == 0:
                 self.msg2str.emit("No datapoints available for channel {}".format(self.ch))
                 return pd.Series()
             # If samples already available, append and return them
@@ -513,12 +625,12 @@ class ChannelData(PV, QObject):
                 self.return_data()
 
         else:  # nos != 0
-
             # Timer
             nos_max = self.pv['nos'].value
             # If samples are already available, append them
             self.msg2str.emit("Start receiving datapoints for channel {}".format(self.ch))
-            if not self.pv['samples'].value.shape[0] == 0:
+            print("ch{}: self.pv['samples'] = {}".format(self.ch, self.pv['samples']))
+            if int == type(self.pv['samples'].value) or not self.pv['samples'].value.shape[0] == 0:
                 self.append_to_data(self.pv['samples'].value)
                 self.update_pbar(nos_max)
 
@@ -537,11 +649,17 @@ class ChannelData(PV, QObject):
 
     def show_info(self):
         try:
-            self.msg2str.emit("ch{}: nos = {}; "
-                              "samples = {}".format(self.ch, self.pv['nos'].value,
-                                                    self.pv['samples'].value.shape[0]))
+            if not int == type(self.pv['samples'].value):
+                self.msg2str.emit("ch{}: nos = {}; "
+                                  "samples = {}".format(self.ch, self.pv['nos'].value,
+                                                        self.pv['samples'].value.shape[0]))
+            else:
+                self.msg2str.emit("ch{}: nos = {}; "
+                                  "samples = {}".format(self.ch, self.pv['nos'].value,
+                                                        self.pv['samples'].value))
         except:
             self.msg2str.emit("ch{}: Error showing info".format(self.ch))
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
