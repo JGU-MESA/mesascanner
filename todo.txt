@@ -1,4 +1,2 @@
-1. Strftime für Save: %y%m%d_%h%m_lstrslt.dat
-2. Plot: ch(x) vs index
-3. Plot: if ch(0) exists and ch(y) exists (y >0): ch(y) vs. ch(0)
-4. If-Bedingung checken: pv['nos'] oder pv['samples']
+Date: 18-06-13
+nothing yet
