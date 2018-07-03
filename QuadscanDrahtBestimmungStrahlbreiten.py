@@ -10,14 +10,14 @@ import QuadscanParabelFit as qp
 ###  Hier bitte Pfad (path), Element (el) und die verwendeten Ströme (istart, di) auswählen ###
 ###  Bei schlechten Fits eventuell die Grenzen ändern (startpar1, startpar2, startpar3) ###
 
-path = "2018-06-12_16-17_Strom0_07bis0_26in0_005A_trip020q2.csv"
-# melba_020:trip_q1, melba_020:trip_q2, melba_020:trip_q3, melba_050:trip_q1, melba_050:trip_q2, melba_050:trip_q3
+path = "2018-07-02/180702_melba020q2_-0_3bis0_33in0_015.csv"
+#melba_020:trip_q1, melba_020:trip_q2, melba_020:trip_q3, melba_050:trip_q1, melba_050:trip_q2, melba_050:trip_q3
 dBdsi = [0.474, 0.472, 0.474, 0.472, 0.472, 0.472]  # dB/(ds*I) in T/(m*A)
 l = [0.3979, 0.2659, 0.1339, 0.3575, 0.2255, 0.0935]  # Länge der Driftstrecke in m
 el = 1  # aktueller verwendeter Quadrupol
 
-istart = 0.07  # Anfangsstrom in A
-di = 0.005      # Schrittweite des Stroms in A
+istart = -0.3  # Anfangsstrom in A
+di = 0.015      # Schrittweite des Stroms in A
 
 ep = 895.394    # e/p in m/(Vs)
 s = 0.04921     # effektive Länge in m
@@ -26,11 +26,12 @@ beta = 0.5482
 
 single, x_data, y_data = [], [], []
 fitpar, fitcov, ksep, emittanz = [[], [], []], [[], [], []], [[], [], []], [[], [], []]
+#fitpar, fitcov, ksep, emittanz = np.array([]), np.array([]), np.array([]), np.array([])
 k = np.array([])
 
 ihilf = 0
 
-startpar = [[[0, 36, 0], [65, 50, 7]], [[0, 70, 0], [65, 95, 7]], [[0, 105, 0], [65, 125, 5]]]
+startpar = [[[0, 36, 0], [65, 50, 7]], [[0, 70, 0], [65, 95, 7]], [[0, 105, 0], [65, 112, 5]]]
 
 plt.figure(1)
 #plt.rc('text', usetex=True)
@@ -54,12 +55,17 @@ def peakfit(fkt, x, y, startparameter, fitparameter, covarianz, kneu, fitnumber,
         covarianz.append(pcov[2][2]/1000)
         #covarianz.append(pcov)
         kneu.append(k[fitnumber])
+        #fitparameter = np.append(fitparameter, popt[2]/1000)
+        #kneu = np.append(kneu, k[fitnumber])
+        #covarianz = np.append(covarianz, pcov[2][2]/1000)
     else:
         print("Fit ", fitnumber, " bei Peak ", peaknumber, " ist zu nah an den Fitgrenzen: ", popt)
 
 ###Einlesen der Daten und umschreiben in Listen. Berechnung der k-Werte___________________________###
 
 data = np.genfromtxt(path, delimiter=',', skip_header=1)  # , skip_footer=0, names=['l', 'x','y'])
+
+
 
 for i in range(1, len(data)):  # Hier von 1 aus, da in Schleife i-1 benutzt wird
     if (data[i][1] < (data[i - 1][1] - 10000)):
@@ -90,10 +96,6 @@ for j in range(0, 3):
         except:
             print("Fit ", i, " bei Peak ", j+1, " hat nicht funktioniert")
 
-ksep = np.array(ksep)
-fitpar = np.array(fitpar)
-fitcov = np.array(fitcov)
-
 ###Plots und Dateiausgabe_______________________________________________________________________###
 
 plt.ylabel('Intensität (a.u.)', fontsize=16)
@@ -108,9 +110,9 @@ plt.show()
 ###Parabelfits ________________________________________________________________________________###
 
 for j in range(0, 3):
-    plt.errorbar(ksep[j], fitpar[j] ** 2 * 1000000, 2 * fitcov[j] * fitpar[j] * 1000000, marker='o', markersize=2,
+    plt.errorbar(np.array(ksep[j]), np.array(fitpar[j]) ** 2 * 1000000, 2 * np.array(fitcov[j]) * np.array(fitpar[j]) * 1000000, marker='o', markersize=2,
                  color=((j + 1) / 3, 0, 0))
-    emittanz[j] = qp.parfit(ksep[j], fitpar[j] ** 2, 2 * fitcov[j] * fitpar[j], s, l[el])
+    emittanz[j] = qp.parfit(np.array(ksep[j]), np.array(fitpar[j]) ** 2, 2 * np.array(fitcov[j]) * np.array(fitpar[j]),  s, l[el])
 
 emittanz = np.array(emittanz)
 plt.savefig(path[:-4] +"_parabel.pdf", dpi=200, bbox_inches='tight')
@@ -118,6 +120,5 @@ plt.show()
 
 ###Output-Datei _________________________________________________________________________________###
 
-#np.savetxt(path[:-4] +".txt", [ksep[0], fitpar[0], fitcov[0], ksep[1], fitpar[1], fitcov[1], ksep[2], fitpar[2], fitcov[2]], header="k in 1/m^2, sigma in m, delta sigma in m")
 np.savetxt(path[:-4] +".txt", [ksep[0], fitpar[0], fitcov[0], ksep[1], fitpar[1], fitcov[1], ksep[2], fitpar[2], fitcov[2], "emittanz, delta_emittanz in mm mrad; rechte Seite, linke Seite, Mittelwert", emittanz[0], emittanz[1], emittanz[2]], header="k in 1/m^2, sigma in m, delta sigma in m", fmt='%s')
 
