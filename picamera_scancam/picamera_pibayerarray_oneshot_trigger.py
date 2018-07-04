@@ -1,4 +1,10 @@
 #!/usr/local/bin/python3.6
+import sys
+
+if sys.argv[0] == 'help':
+    print("Usage: python3 {} <number> <save_name|quad_no>".format(sys.argv[0]))
+    sys.exit()
+
 import datetime
 import RPi.GPIO as GPIO
 import matplotlib

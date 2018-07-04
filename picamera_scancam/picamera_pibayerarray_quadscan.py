@@ -1,4 +1,10 @@
 #!/usr/local/bin/python3.6
+import sys
+
+if sys.argv[1] == 'help':
+    print("Usage: python3 {} <quad_no=1> <i_init=-0.05> <i_final=0.15> <di=0.05>".format(sys.argv[0])) 
+    sys.exit()
+
 import datetime
 import epics
 import matplotlib
@@ -10,12 +16,12 @@ import picamera
 import picamera.array
 import time
 import subprocess
-import sys
 
 from fractions import Fraction
 from picamera_methods import *
 
 os.environ['PYEPICS_LIBCA'] = "/home/epics/base/lib/linux-arm/libca.so"
+
 
 # Timestamp
 start_now = datetime.datetime.now()
