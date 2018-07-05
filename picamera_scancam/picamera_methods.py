@@ -71,7 +71,7 @@ def save_to_npz(path, name, imgarray, timestamp, cam, camlist, i_set, i_get, pv_
     out = "{}/{}.npz".format(path, name)
     picam_specs = {}
     for k in camlist:
-        attr = getattr(cam, k)
+        attr = str(getattr(cam, k))
         picam_specs[k] = attr
         
     res_dict = {'curr_set': round(i_set,6), 'curr_get': i_get, 
