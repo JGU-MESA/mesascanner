@@ -147,8 +147,7 @@ with picamera.PiCamera() as camera:
 
             # Quadrupol
             pv_all['i_set'].put(i_set)
-            time.sleep(.5)
-            i_get = round(pv_all['i_get'].get(),6)
+            time.sleep(10) # i_get is scanned every 10s
 
             # Take picture
             pic_name = "qd{}s_{:=+05d}mA".format(quad_no, int(i_set*1000))
@@ -158,6 +157,7 @@ with picamera.PiCamera() as camera:
             # imgarray_roi = output.array[roi(yc,1):roi(yc),roi(xc,1):roi(xc),:]
             imgarray = output.array
             now = datetime.datetime.now()
+            i_get = round(pv_all['i_get'].get(),6)
             pv_additional_info(pv_additionals, pv_list)
 
             plot_pic(pic_path, pic_name, imgarray, now)
