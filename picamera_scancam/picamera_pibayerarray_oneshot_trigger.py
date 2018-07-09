@@ -18,7 +18,6 @@ import time
 import subprocess
 import sys
 
-from fractions import Fraction
 from picamera_methods import *
 
 
@@ -33,17 +32,13 @@ except:
 start_now = datetime.datetime.now()
 path_time_prefix, pic_dir = [start_now.strftime(pat) for pat in ["%y%m%d", "%y%m%d_%H%M"]]
 
-# Camera attributes to save
-camlist = ['sensor_mode', 'iso', 'shutter_speed', 'exposure_mode', 
-                'awb_mode', 'awb_gains', 'framerate', 'digital_gain', 'analog_gain', 'revision', 'exposure_speed']
-
-# PVs to save (for all shots) (already defined in picamera_methods, optional)
-# pv_list = ['steam:laser:setamp_get', 'steam:laser:pl_get', 'steam:powme1:pow_get']
-
 # Miscellanous
-pv_additionals = {}
-res_time = []
+roi = [750, 2100, 2750, 500]  # [Left, Lower, Right, Upper]
+pv_additionals = {}  # Dictionary to write in with <value>.<Unit>
+res_time = []  # Information of mean picture time
     
+#===========================================
+#================== ONESHOT ==================
 # Arguments
 try:
     num_of_pics = int(sys.argv[1])
@@ -58,20 +53,9 @@ except:
     print("Usage: python3 {} <number> <save_name|quad_no>".format(sys.argv[0]))
     exit_script(False)
 
+
 # Path
-pic_path = "/home/pi/python/quadscan/oneshot_pics/{}/{}".format(path_time_prefix, pic_dir)
-if not os.path.isdir(pic_path):
-    print("Picture directory does not exist yet, making dir {}".format(pic_path))
-    try:
-        os.system("mkdir -p {}".format(pic_path))
-        with open("{}/cam_tab.txt".format(pic_path), 'a') as f:
-            f.write("pic_name\t")
-            for k in camlist:
-                f.write("{}\t".format(k))
-            f.write("\n")
-    except:
-        print("Could not make picture directory, aborting")
-        exit_script(False)
+pic_path = make_dir('oneshot', path_time_prefix, pic_dir)
 
 #PVs for saving quadrupol current
 try:
@@ -106,6 +90,7 @@ except KeyboardInterrupt:
     exit_script()
     
 print("________________________________________")
+
 
 # ===== Stop Webserver =====
 print("Stopping Webserver")
@@ -161,7 +146,8 @@ with picamera.PiCamera() as camera:
             
             # Background image processing
             pic_name = "background"
-            imgarray = output.array
+            # imgarray = output.array
+            imgarray = roi_img(output.array, *roi)
             now = datetime.datetime.now()
             plot_pic(pic_path, pic_name, imgarray, now)
             write_camtab(pic_path, pic_name, camera, camlist)
@@ -199,7 +185,8 @@ with picamera.PiCamera() as camera:
                         res_time.append(stop-start)
                         
                         # Image processing
-                        imgarray = output.array
+                        imgarray = roi_img(output.array, *roi)
+                        # imgarray = output.array
                         now = datetime.datetime.now()
 
                         ## Plot
@@ -226,7 +213,8 @@ with picamera.PiCamera() as camera:
             pic_name = "background"
             print("Taking background picture!")
             camera.capture(output, 'jpeg', bayer=True)
-            imgarray = output.array
+            # imgarray = output.array
+            imgarray = roi_img(output.array, *roi)
             now = datetime.datetime.now()
 
             plot_pic(pic_path, pic_name, imgarray, now)
