@@ -7,33 +7,32 @@ import QuadscanParabelFit as qp
 #rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 #rc('text', usetex=True)
 
-###  Hier bitte Pfade (path, path_info) und Element (el) auswählen ###
-###  Eventuell skip_header beim Einlesen der Dateien ändern ###
+###  Hier bitte Pfad (path), Element (el) und die verwendeten Ströme (istart, di) auswählen ###
 ###  Bei schlechten Fits eventuell die Grenzen ändern (startpar1, startpar2, startpar3) ###
 
-path = "180711/180711_1710_wirescan.csv"
-path_info = "180711/180711_1710_wirescan_info.dat"
-
+path = "180711/180711_1801_wirescan.csv"
 #melba_020:trip_q1, melba_020:trip_q2, melba_020:trip_q3, melba_050:trip_q1, melba_050:trip_q2, melba_050:trip_q3
-el = 3  # aktueller verwendeter Quadrupol
 dBdsi = [0.474, 0.472, 0.40374, 0.472, 0.472, 0.472]  # dB/(ds*I) in T/(m*A)
 l = [0.3979, 0.2659, 0.1339, 0.3575, 0.2255, 0.0935]  # Länge der Driftstrecke in m
+el = 3  # aktueller verwendeter Quadrupol
+
+istart = -0.1  # Anfangsstrom in A
+di = 0.01      # Schrittweite des Stroms in A
 
 ep = 895.394    # e/p in m/(Vs)
 s = 0.04921     # effektive Länge in m
 gamma = 1.196
 beta = 0.5482
 
-x_data, y_data = [], []
+single, x_data, y_data = [], [], []
 fitpar, fitcov, ksep, emittanz = [[], [], []], [[], [], []], [[], [], []], [[], [], []]
 #fitpar, fitcov, ksep, emittanz = np.array([]), np.array([]), np.array([]), np.array([])
 k = np.array([])
-
 bkg = 0
 ibkg = 0
 ihilf = 0
 
-startpar = [[[0, 70, 0], [65, 85, 3.4]], [[0, 95, 0], [65, 105, 3.4]], [[0, 111, 0], [65, 119, 3.4]]]
+startpar = [[[0, 70, 0], [65, 85, 7]], [[0, 95, 0], [65, 102, 7]], [[0, 113, 0], [65, 119, 7]]]
 
 plt.figure(1)
 #plt.rc('text', usetex=True)
@@ -42,48 +41,26 @@ plt.figure(1)
 ###Einlesen der Daten und umschreiben in Listen. Berechnung der k-Werte___________________________###
 
 data = np.genfromtxt(path, delimiter=',', skip_header=1)  # , skip_footer=0, names=['l', 'x','y'])
-info_data = np.genfromtxt(path_info, delimiter=",", skip_header=17)
 
-for i in range(0, len(info_data)):
-    x_data.append([])
-    y_data.append([])
+for i in range(1, len(data)):  # Hier von 1 aus, da in Schleife i-1 benutzt wird
+    if (data[i][1] < (data[i - 1][1] - 10000)):
+        single.append(data[ihilf:(i - 1)])
+        x_data.append(list(range(ihilf, (i - 1))))
+        y_data.append(list(range(ihilf, (i - 1))))
+        ihilf = i
 
-for i in range(0, int(info_data[0][3])):
-    x_data[0].append(data[i][1] * 152.175 / (65536 - 1))
-    y_data[0].append(data[i][2] * 0.001)
-
-for j in range(1, len(info_data)):
-    for i in range(int(info_data[j-1][3]), int(info_data[j][3])):
-        x_data[j].append(data[i][1] * 152.175 / (65536 - 1))
-        y_data[j].append(data[i][2] * 0.001)
-
-for i in range(0, len(info_data)):  # Quadrupolstärken
-    k = np.append(k, [[round(ep * dBdsi[el] * info_data[i][2], 2)]])
-
-for i in range(0, len(info_data)):
-    #print(len(info_data)-i-1, "________________________________")
-    #print(len(x_data[len(info_data)-i-1]))
-    #print(len(info_data))
-    #print(len(x_data))
-    if len(x_data[len(info_data)-i-1]) < 10000:
-        #print("yes")
-        #del x_data[i]
-        #print("anfang ", len(x_data[:len(info_data)-i-1]))
-        #print("ende ", len(x_data[len(info_data)-i:]))
-        #print("gesamt ", len(x_data))
-        x_data = x_data[:len(info_data) - i - 1] + x_data[len(info_data) - i:]
-        y_data = y_data[:len(info_data) - i - 1] + y_data[len(info_data) - i:]
-        k = np.delete(k, len(info_data)-i-1)
-
-print("Es wurden ", len(info_data) - len(x_data), " Messungen gelöscht.")
-#print(len(k))
-#print(len(x_data))
-#print(len(y_data))
+for i in range(0, len(single)):  # Quadrupolstärken
+    k = np.append(k, [[round(ep * dBdsi[el] * (istart + i * di), 2)]])
 
 print("Quadrupolstärken in 1/m^2: ", k)
 
-for i in range(0, len(x_data)):
-    for j in range(0, len(x_data[i])):
+for i in range(0, len(single)):
+    for j in range(0, len(single[i])):
+        x_data[i][j] = float(single[i][j][1]) * 152.175 / (65536 - 1)
+        y_data[i][j] = float(single[i][j][2]) * 0.001
+
+for i in range(0, len(single)):
+    for j in range(0, len(single[i])):
         if x_data[i][j] > 58 and x_data[i][j] < 62:
             bkg += y_data[i][j]
             ibkg += 1
@@ -91,8 +68,8 @@ for i in range(0, len(x_data)):
 bkg = bkg/ibkg
 print("Der Untergrund ist ", bkg, " a.u. (Mittelung über ", ibkg, " Messpunkte)")
 
-for i in range(0, len(y_data)):
-    for j in range(0, len(y_data[i])):
+for i in range(0, len(single)):
+    for j in range(0, len(single[i])):
         y_data[i][j] = y_data[i][j] - bkg
 
 ###Definitionen der Funktionen ___________________________________________________________________###
@@ -112,21 +89,25 @@ def peakfit(fkt, x, y, startparameter, fitparameter, covarianz, kneu, fitnumber,
             popt[1] > (startparameter[0][1] + 0.1)) and (popt[2] < (startparameter[1][2] - 0.1)):
         fitparameter.append(popt[2]/1000)
         covarianz.append(pcov[2][2]/1000)
+        #covarianz.append(pcov)
         kneu.append(k[fitnumber])
+        #fitparameter = np.append(fitparameter, popt[2]/1000)
+        #kneu = np.append(kneu, k[fitnumber])
+        #covarianz = np.append(covarianz, pcov[2][2]/1000)
     else:
         print("Fit ", fitnumber, " bei Peak ", peaknumber, " ist zu nah an den Fitgrenzen: ", popt)
 
 ###Ausführung der Gaußfits an die Daten_________________________________________________________###
 for j in range(0, 3):
-    for i in range(0, len(x_data)):
+    for i in range(0, len(single)):
         plt.subplot(211)
         plt.ylabel('Intensität (a.u.)', fontsize=16)
-        plt.plot(x_data[i], y_data[i], marker='o', markersize=1, color=(i / len(info_data), 0, 0), label='k = ' + str(k[i]))
+        plt.plot(x_data[i], y_data[i], marker='o', markersize=1, color=(i / len(single), 0, 0), label='k = ' + str(k[i]))
         #plt.legend(bbox_to_anchor=(1.01, 1), loc="upper left")
-        try:
-            peakfit(gaus, x_data[i], y_data[i], startpar[j], fitpar[j], fitcov[j], ksep[j], i, j+1)
-        except:
-            print("Fit ", i, " bei Peak ", j+1, " hat nicht funktioniert")
+        #try:
+        peakfit(gaus, x_data[i], y_data[i], startpar[j], fitpar[j], fitcov[j], ksep[j], i, j+1)
+        #except:
+         #   print("Fit ", i, " bei Peak ", j+1, " hat nicht funktioniert")
 
 ###Plots und Dateiausgabe_______________________________________________________________________###
 
