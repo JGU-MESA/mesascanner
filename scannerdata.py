@@ -495,7 +495,7 @@ class FormWidget(QWidget):
         else:
             number_of_values = self._ch[first_channel].pv['nos'].value
 
-        if not all(
+        if len(self._ch) > 1 and not all(
                 self._ch[i[1]].pv['nos'].value == number_of_values or
                 self._ch[i[1]].pv['samples'].value.shape[0] == number_of_values
                 for i in enumerate(self._ch)
@@ -526,7 +526,7 @@ class FormWidget(QWidget):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         now = datetime.datetime.now()
-        save_str = "{}_last_rsl.csv".format(now.strftime("%y%m%d_%H%M"))
+        save_str = "{}wirescan.csv".format(now.strftime("%y%m%d_%H%M_"))
         my_path, _ = QFileDialog.getSaveFileName(self, "Save to", save_str,
                                                  "CSV-File (*.csv);;All Files (*)", options=options)
 
