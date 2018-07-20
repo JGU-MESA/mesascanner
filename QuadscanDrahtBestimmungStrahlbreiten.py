@@ -4,18 +4,21 @@ from scipy.optimize import curve_fit
 import QuadscanParabelFit as qp
 #from matplotlib import rc
 
-#rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
-#rc('text', usetex=True)
+#plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
+plt.rc('mathtext', fontset='stix')
+#rc('font',**{'family':'serif','serif':['Helvetica']})
+
 
 ###  Hier bitte Pfade (path, path_info) und Element (el) auswählen ###
 ###  Eventuell skip_header beim Einlesen der Dateien ändern ###
 ###  Bei schlechten Fits eventuell die Grenzen ändern (startpar1, startpar2, startpar3) ###
 
-path = "180711/180711_1710_wirescan.csv"
-path_info = "180711/180711_1710_wirescan_info.dat"
+path = '180720/180720_1112_wirescan.csv'
+path_info = '180720/180720_1112_wirescan_info.dat'
 
 #melba_020:trip_q1, melba_020:trip_q2, melba_020:trip_q3, melba_050:trip_q1, melba_050:trip_q2, melba_050:trip_q3
-el = 3  # aktueller verwendeter Quadrupol
+el = 2  # aktueller verwendeter Quadrupol
 dBdsi = [0.474, 0.472, 0.40374, 0.472, 0.472, 0.472]  # dB/(ds*I) in T/(m*A)
 l = [0.3979, 0.2659, 0.1339, 0.3575, 0.2255, 0.0935]  # Länge der Driftstrecke in m
 
@@ -33,7 +36,7 @@ bkg = 0
 ibkg = 0
 ihilf = 0
 
-startpar = [[[0, 70, 0], [65, 85, 3.4]], [[0, 95, 0], [65, 105, 3.4]], [[0, 111, 0], [65, 119, 3.4]]]
+startpar = [[[0, 30, 0], [65, 40, 3.4]], [[0, 80, 0], [65, 90, 3.4]], [[0, 103, 0], [65, 113, 3.4]]]
 
 plt.figure(1)
 #plt.rc('text', usetex=True)
@@ -42,7 +45,7 @@ plt.figure(1)
 ###Einlesen der Daten und umschreiben in Listen. Berechnung der k-Werte___________________________###
 
 data = np.genfromtxt(path, delimiter=',', skip_header=1)  # , skip_footer=0, names=['l', 'x','y'])
-info_data = np.genfromtxt(path_info, delimiter=",", skip_header=17)
+info_data = np.genfromtxt(path_info, delimiter=",", skip_header=18)
 
 for i in range(0, len(info_data)):
     x_data.append([])
@@ -120,7 +123,8 @@ def peakfit(fkt, x, y, startparameter, fitparameter, covarianz, kneu, fitnumber,
 for j in range(0, 3):
     for i in range(0, len(x_data)):
         plt.subplot(211)
-        plt.ylabel('Intensität (a.u.)', fontsize=16)
+        plt.grid(color='black', linestyle='--')
+        plt.ylabel(r'Intensität (a.u.)', fontsize=16)
         plt.plot(x_data[i], y_data[i], marker='o', markersize=1, color=(i / len(info_data), 0, 0), label='k = ' + str(k[i]))
         #plt.legend(bbox_to_anchor=(1.01, 1), loc="upper left")
         try:
@@ -130,24 +134,26 @@ for j in range(0, 3):
 
 ###Plots und Dateiausgabe_______________________________________________________________________###
 
-plt.ylabel('Intensität (a.u.)', fontsize=16)
-plt.xlabel('s (mm)', fontsize=16)
+plt.ylabel(r'Intensität (a.u.)', fontsize=16)
+plt.xlabel(r'$s$ (mm)', fontsize=16)
 #plt.xlabel(r'\textbf{time} (s)')
 #plt.ylabel(r'\textit{voltage} (mV)',fontsize=16)
 #plt.legend(bbox_to_anchor=(1.01, 1), loc="upper left")
 
-plt.savefig(path[:-4] +"_data_qs.png", dpi=(200), bbox_inches='tight')
+plt.grid(color='black', linestyle='--')
+plt.savefig(path[:-4] + '_data_qs.png', dpi=(200), bbox_inches='tight')
 plt.show()
 
 ###Parabelfits ________________________________________________________________________________###
 
 for j in range(0, 3):
-    plt.errorbar(np.array(ksep[j]), np.array(fitpar[j]) ** 2 * 1000000, 2 * np.array(fitcov[j]) * np.array(fitpar[j]) * 1000000, marker='o', markersize=2,
+    plt.errorbar(np.array(ksep[j]), np.array(fitpar[j]) ** 2 * 1000000, 2 * np.array(fitcov[j]) * np.array(fitpar[j]) * 1000000, marker='o', markersize=2, linestyle='--', mec='black',
                  color=((j + 1) / 3, 0, 0))
     emittanz[j] = qp.parfit(np.array(ksep[j]), np.array(fitpar[j]) ** 2, 2 * np.array(fitcov[j]) * np.array(fitpar[j]),  s, l[el])
 
 emittanz = np.array(emittanz)
-plt.savefig(path[:-4] +"_parabel.pdf", dpi=200, bbox_inches='tight')
+plt.savefig(path[:-4] + '_parabel.pdf', dpi=200, bbox_inches='tight')
+plt.grid(color='black', linestyle='--')
 plt.show()
 
 ###Output-Datei _________________________________________________________________________________###
