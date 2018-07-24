@@ -192,7 +192,7 @@ class PlotCanvas(FigureCanvas):
 
     def plot(self, df):
         print("Start Plotting")
-        fontsize = 6
+        fontsize = 10
         # Clear last figure
         self.figure.clf()
 
@@ -206,7 +206,7 @@ class PlotCanvas(FigureCanvas):
             else:
                 x = df.index
                 xlabel = "Index"
-            main_ax.plot(x, df.iloc[:,i], label=df.iloc[i].name)
+            main_ax.plot(x, df.iloc[:,i], label=df.columns[i])
 
         main_ax.legend(fontsize=fontsize)
         main_ax.tick_params(labelsize=fontsize)
@@ -249,6 +249,12 @@ class MyMainWindow(QMainWindow):
         self.my_left = round(0.05 * screen_res[0])
         self.my_top = round(0.05 * screen_res[1])
         self.my_height = round(0.9 * screen_res[1])
+        
+        if screen_res[0] >= 1280 or screen_res[1] >= 1980:
+            self.my_left = round(0.3 * screen_res[0])
+            self.my_top = round(0.3 * screen_res[1])
+            self.my_height = round(0.4 * screen_res[1])
+
         self.my_width = self.my_height * 16 / 9  # round(0.8 * screen_res[0])
 
         # Widgets
@@ -326,7 +332,7 @@ class FormWidget(QWidget):
         # Info text
         self.ln_info = QLineEdit()
         self.txt_info = QTextEdit()
-        self.txt_info.setMinimumHeight(parent.my_height/4)
+        self.txt_info.setMinimumHeight(parent.my_height/6)
 
         # Select channels and scanner at startup
         self.select_ch_scan(True)
@@ -489,7 +495,7 @@ class FormWidget(QWidget):
         else:
             number_of_values = self._ch[first_channel].pv['nos'].value
 
-        if not all(
+        if len(self._ch) > 1 and not all(
                 self._ch[i[1]].pv['nos'].value == number_of_values or
                 self._ch[i[1]].pv['samples'].value.shape[0] == number_of_values
                 for i in enumerate(self._ch)
@@ -520,7 +526,7 @@ class FormWidget(QWidget):
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         now = datetime.datetime.now()
-        save_str = "{}_last_rsl.csv".format(now.strftime("%y%m%d_%H%M"))
+        save_str = "{}wirescan.csv".format(now.strftime("%y%m%d_%H%M_"))
         my_path, _ = QFileDialog.getSaveFileName(self, "Save to", save_str,
                                                  "CSV-File (*.csv);;All Files (*)", options=options)
 
