@@ -1,4 +1,10 @@
 #!/usr/local/bin/python3.6
+import sys
+
+if sys.argv[1] == 'help':
+    print("Usage: python3 {} <number> <save_name|trip_no> <if trip_no: quad_no>".format(sys.argv[0]))
+    sys.exit()
+
 import datetime
 import RPi.GPIO as GPIO
 import matplotlib
@@ -12,8 +18,7 @@ import time
 import subprocess
 import sys
 
-from fractions import Fraction
-from picamera_methods import *
+from picamera_methods import *  # Important!!!
 
 
 try:
@@ -23,54 +28,35 @@ except:
     pass
 
 
-# Timestamp
-start_now = datetime.datetime.now()
-path_time_prefix, pic_dir = [start_now.strftime(pat) for pat in ["%y%m%d", "%y%m%d_%H%M"]]
-
-# Camera attributes to save
-camlist = ['sensor_mode', 'iso', 'shutter_speed', 'exposure_mode', 
-                'awb_mode', 'awb_gains', 'framerate', 'digital_gain', 'analog_gain', 'revision', 'exposure_speed']
-
-# PVs to save (for all shots) (already defined in picamera_methods, optional)
-# pv_list = ['steam:laser:setamp_get', 'steam:laser:pl_get', 'steam:powme1:pow_get']
-
 # Miscellanous
-pv_additionals = {}
-res_time = []
+res_time = []  # Information of mean picture time
     
+#===========================================
+#================== ONESHOT ==================
 # Arguments
 try:
     num_of_pics = int(sys.argv[1])
     try:
-        quad_no = int(sys.argv[2])
+        trip_no = int(sys.argv[2])
+        quad_no = int(sys.argv[3])
         pic_name_save = None
     except:
+        trip_no = None
         quad_no = None
         pic_name_save = sys.argv[2]
 
 except:
-    print("Usage: python3 {} <number> <save_name|quad_no>".format(sys.argv[0]))
+    print("Usage: python3 {} <number> <save_name|trip_no> <if trip_no: quad_no>".format(sys.argv[0]))
     exit_script(False)
 
+
 # Path
-pic_path = "/home/pi/python/quadscan/oneshot_pics/{}/{}".format(path_time_prefix, pic_dir)
-if not os.path.isdir(pic_path):
-    print("Picture directory does not exist yet, making dir {}".format(pic_path))
-    try:
-        os.system("mkdir -p {}".format(pic_path))
-        with open("{}/cam_tab.txt".format(pic_path), 'a') as f:
-            f.write("pic_name\t")
-            for k in camlist:
-                f.write("{}\t".format(k))
-            f.write("\n")
-    except:
-        print("Could not make picture directory, aborting")
-        exit_script(False)
+pic_path = make_dir('oneshot', path_time_prefix, pic_dir)
 
 #PVs for saving quadrupol current
 try:
-    quad_i_get = epics.PV("melba_020:trip_q{:1d}:i_get".format(quad_no))
-    quad_i_set = epics.PV("melba_020:trip_q{:1d}:i_set".format(quad_no))
+    quad_i_get = epics.PV('melba_{:03d}:trip_q{}:i_get'.format(trip_no, quad_no))
+    quad_i_set = epics.PV('melba_{:03d}:trip_q{}:i_set'.format(trip_no, quad_no))
 except:
     print("No quadrupol number was given or pvs could not be assigned")
     quad_i_get, quad_i_set = None, None
@@ -99,7 +85,8 @@ try:
 except KeyboardInterrupt:
     exit_script()
     
-print("________________________________________")
+print("===========================================")
+
 
 # ===== Stop Webserver =====
 print("Stopping Webserver")
@@ -127,7 +114,7 @@ with picamera.PiCamera() as camera:
         camera.exposure_mode = 'off'
 
         print("")
-        print("________________________________________")
+        print("===========================================")
         myprint("camera.iso", camera.iso)
         myprint("camera.framerate", camera.framerate)
         myprint("camera.framerate_range", camera.framerate_range)
@@ -136,7 +123,7 @@ with picamera.PiCamera() as camera:
         myprint("camera.exposure_mode", camera.exposure_mode)
         myprint("camera.digital_gain", camera.digital_gain)
         myprint("camera.analog_gain", camera.analog_gain)
-        print("________________________________________")
+        print("===========================================")
         
         if camera.analog_gain == 0 or camera.digital_gain == 0 or camera.exposure_speed == 0:
             print("Digital and/or analog gain is 0! Pixels will be black.")
@@ -155,12 +142,13 @@ with picamera.PiCamera() as camera:
             
             # Background image processing
             pic_name = "background"
-            imgarray = output.array
+            # imgarray = output.array
+            imgarray = roi_img(output.array, *roi)
             now = datetime.datetime.now()
             plot_pic(pic_path, pic_name, imgarray, now)
             write_camtab(pic_path, pic_name, camera, camlist)
             save_to_npz(pic_path, pic_name, imgarray, now, camera, camlist, 0, 0)
-            print("________________________________________")
+            print("===========================================")
 
             # Start taking pictures            
             for pic_id in range(num_of_pics):
@@ -186,14 +174,15 @@ with picamera.PiCamera() as camera:
                         else:
                             i_get = round(quad_i_get.get(),6)
                             i_set = round(quad_i_set.get(),6)
-                            pic_name = "qd{}s_{:=+05d}mA".format(quad_no, int(i_set*1e3))                
+                            pic_name = "qst{:03d}q{}_{:=+05d}mA".format(trip_no, quad_no, int(i_set*1000))
                             print("pic_id {}: quad_no = {}, i_set = {} A, i_get = {} A".format(pic_id, quad_no, i_set, i_get))
 
                         print("Picture {:02d} was taken within {:.3f}s".format(pic_id, stop-start))
                         res_time.append(stop-start)
                         
                         # Image processing
-                        imgarray = output.array
+                        imgarray = roi_img(output.array, *roi)
+                        # imgarray = output.array
                         now = datetime.datetime.now()
 
                         ## Plot
@@ -203,15 +192,15 @@ with picamera.PiCamera() as camera:
 
 
                         print("Pictures taken successfully, saving to: {}".format(pic_name), flush=True)
-                        print("________________________________________")
+                        print("===========================================")
                         
                     else:
                         print("Timeout: no trigger detected withing {}ms.".format(timeout))
-                        print("________________________________________")
+                        print("===========================================")
                         break
                         
                 except KeyboardInterrupt:
-                    exit_script()
+                    abort_script()
                 
             print("<time to take picture> = ({:.3f} +/- {:.3f})s".format(np.mean(res_time), np.std(res_time)))
                     
@@ -220,7 +209,8 @@ with picamera.PiCamera() as camera:
             pic_name = "background"
             print("Taking background picture!")
             camera.capture(output, 'jpeg', bayer=True)
-            imgarray = output.array
+            # imgarray = output.array
+            imgarray = roi_img(output.array, *roi)
             now = datetime.datetime.now()
 
             plot_pic(pic_path, pic_name, imgarray, now)
