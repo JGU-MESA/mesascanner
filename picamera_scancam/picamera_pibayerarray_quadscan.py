@@ -40,16 +40,12 @@ i_init = -0.05  # Current in mA
 i_final = 0.15  # Current in mA
 di = 0.05
 
-#PVs
-quad_param = ['i_set', 'i_get', 'on_set']
-pv_additional =['steam:laser:setamp_get', 'steam:powme1:pow_get', 'steam:powme1:ibd_vs_prefl_get']
-pv_all = dict()
-for par in pv_quad_param:
-    pv_all[quad_param] = epics.PV('melba_{:03d}:trip_q{}:{}'.format(trip_no, quad_no, par))
-
 # Arguments
 argv_range = len(sys.argv)
-if 1 < len(sys.argv):
+#DEBUG print("Number of arguments received: {}".format(argv_range))
+#DEBUG for itm in range(argv_range):
+    #DEBUG     print("sys.argv[{}] = {}".format(itm, sys.argv[itm]))
+if argv_range > 1:
     try:
         trip_no = int(sys.argv[1])
         quad_no = int(sys.argv[2])
@@ -57,15 +53,18 @@ if 1 < len(sys.argv):
         i_final = float(sys.argv[4])
         di = abs(float(sys.argv[5]))
     except:
-        print("Could not assign arguments, will use the defaults.")
-        pass
+       print("Could not assign arguments, will use the defaults.")
+       pass
 
 if i_init > i_final:
     di = -di
 nelm = int((i_final + di - i_init)/di)
 
 # Confirmation dialog
-print("This script scans through quadrupol melba_{:03d}:trip_q{}.".format(trip_no, quad_no))
+print("This script scans through quadrupol:")
+print("====================")
+print("melba_{:03d}:trip_q{}".format(trip_no, quad_no))
+print("====================")
 print("It ramps current from {} to {} with stepwidth {} <=> {} pictures.".format(i_init, i_final, di, nelm))
 print("It takes a picture for each current and saves them seperately in an .npz-file and .png-file.")
 confirmation = input("Do you want to continue? [Yy]")
@@ -82,15 +81,19 @@ if not any(response == yes for yes in ['G','g']):
     print("Aborting.")
     sys.exit(0)
 
+#PVs
+quad_param = ['i_set', 'i_get', 'on_set']
+pv_additional =['steam:laser:setamp_get', 'steam:powme1:pow_get', 'steam:powme1:ibd_vs_prefl_get']
+pv_all = dict()
+for par in quad_param:
+    pv_all[par] = epics.PV('melba_{:03d}:trip_q{}:{}'.format(trip_no, quad_no, par))
+
 # Path
 pic_path = make_dir('quad', path_time_prefix, pic_dir)
 
 # Main
 print("Stopping Webserver")
 subprocess.call(['/home/pi/RPi_Cam_Web_Interface/stop.sh'])
-
-print("Open shutter")
-epics.caput("steam:laser_shutter:ls_set", 1)
 
 print("Starting PiCamera")
 with picamera.PiCamera() as camera:
@@ -106,12 +109,17 @@ with picamera.PiCamera() as camera:
             time.sleep(0.1)
         print(" ")
         print("Ready to take pictures")
+        print("Open shutter")
+        epics.caput("steam:laser_shutter:ls_set", 1)
 
 
         # Measurement loop
         try:
-            for i_set in np.round(np.linspace(i_init, i_final, nelm),6):
+            for pic, i_set in enumerate(np.round(np.linspace(i_init, i_final, nelm),6)):
+                print("==============================================")
                 # Time estimation
+                pic += 1
+                no_pics = round((i_final + di - i_init)/di)
                 if i_set == i_init:
                     start = time.time()
                 if i_set > i_init:
@@ -121,12 +129,11 @@ with picamera.PiCamera() as camera:
                     start = time.time()
 
                 # Quadrupol
-                pv_all['i_set'].put(i_set)
-                time.sleep(10) # i_get is scanned every 10s
+                i_get = set_quadrupol(i_set, pv_all['i_set'], pv_all['i_get'])                
 
                 # Take picture
                 pic_name = "qst{:03d}q{}_{:=+05d}mA".format(trip_no, quad_no, int(i_set*1000))
-                print("Taking Picture: {}".format(pic_name))
+                print("Taking Picture {} of {}: {}, i_get = {}A".format(pic, no_pics, pic_name, i_get))
                 camera.capture(output, 'jpeg', bayer=True)
             
                 # Image processing
@@ -146,6 +153,7 @@ with picamera.PiCamera() as camera:
             abort_script()
             
         else:
+            print("==============================================")
             #Background image
             pic_name = "background"
             print("Taking background image", flush=True)
@@ -160,6 +168,7 @@ with picamera.PiCamera() as camera:
             plot_pic(pic_path, pic_name, bckgrd_array, now)
             write_camtab(pic_path, pic_name, camera, camlist)
             save_to_npz(pic_path, pic_name, bckgrd_array, bckgrd_now, camera, camlist, 0, 0)
+            print("==============================================")
 
 
 print("Stopping picamera")

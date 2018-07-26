@@ -36,16 +36,16 @@ except:
 # Methods
 def abort_script(outfile=None):
     """Script to close shutter or turn of laser an abort script"""
-    if not DISP:
-        try:
-            print("Closing shutter and setting dc off")
-            epics.caput('steam:laser_shutter:ls_set', 0)
-            epics.caput('steam:laser:dc_set', 0)
-            print("Starting Webserver", flush=True)
-            subprocess.call(['/home/pi/RPi_Cam_Web_Interface/start.sh'])
+    try:
+        print("Closing shutter and setting dc off")
+        epics.caput('steam:laser_shutter:ls_set', 0)
+        epics.caput('steam:laser:dc_set', 0)
+        print("Starting Webserver", flush=True)
+        subprocess.call(['/home/pi/RPi_Cam_Web_Interface/start.sh'])
 
-        except:
-            epics.caput('steam:laser:on_set', 0)
+    except:
+        epics.caput('steam:laser:on_set', 0)
+
     try:
         if os.path.exists(outfile): 
             print("Deleting {}".format(outfile))
@@ -189,7 +189,7 @@ def set_quadrupol(i_set, i_set_pv, i_get_pv, shot_mode=False):
     i_set_pv.put(i_set)
     info = True
     """condition1 for i_set >= 0; condition2 for i_set < 0"""
-    interval = 0.075
+    interval = 0.05
     time.sleep(3)
     wait_start_time = time.time()
     while (not (i_set*(1-interval) <= i_get_pv.get() <= i_set * (1 + interval) + 3e-3) and 
@@ -200,7 +200,10 @@ def set_quadrupol(i_set, i_set_pv, i_get_pv, shot_mode=False):
         time.sleep(0.1) 
         if shot_mode: check_laser()
         wait_stop_time = time.time()
-        if wait_stop_time - wait_start_time > 15:
+        if wait_stop_time - wait_start_time > 20:
+            i_set_pv.put(i_set)
+        if wait_stop_time - wait_start_time > 20:
+            print("i_get wait Timeout")
             break
 
     return i_get_pv.get()
