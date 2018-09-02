@@ -249,8 +249,8 @@ class MyMainWindow(QMainWindow):
         self.my_left = round(0.05 * screen_res[0])
         self.my_top = round(0.05 * screen_res[1])
         self.my_height = round(0.9 * screen_res[1])
-        
-        if screen_res[0] >= 1280 or screen_res[1] >= 1980:
+        print("Screen resolution: {}".format(screen_res))
+        if screen_res[1] > 1280 or screen_res[0] > 1980:
             self.my_left = round(0.3 * screen_res[0])
             self.my_top = round(0.3 * screen_res[1])
             self.my_height = round(0.4 * screen_res[1])
